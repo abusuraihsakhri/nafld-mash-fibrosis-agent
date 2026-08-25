@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nafld-mash-fibrosis-engine"
+version = "2.0.0"
+description = "MASH-Sentinel: Metabolic Dysfunction-Associated Steatohepatitis & FAST Score Engine"
+readme = "README.md"
+authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+nafld-mash-fibrosis-engine = "nafld_mash_fibrosis_agent.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-engine"
+Repository = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-engine.git"
