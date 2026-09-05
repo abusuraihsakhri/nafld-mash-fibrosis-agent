@@ -3,9 +3,13 @@ Automated Pytest Test Suite for Nafld Mash Fibrosis Agent.
 Domain: Gastroenterology & Hepatology Systems
 Standard: AASLD / ACG / Chicago Classification v4.0
 """
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Set required environment variable before importing agents
+os.environ.setdefault("AUDIT_SECRET_KEY", "test-audit-secret-key-for-pytest-2026")
 
 import pytest
 from agents.base import PHIGuard, AuditLogger, SecurityException
@@ -63,3 +67,48 @@ def test_supervisor_consensus_and_audit():
     assert main(["audit", "--task-id", "CLI-TEST-01"]) == 0
     assert main(["chat", "Explain", "specifications"]) == 0
     assert main(["verify-audit"]) == 0
+
+
+def test_input_validation_rejects_nan():
+    """NaN metric values should be rejected by validation."""
+    import math
+    with pytest.raises(ValueError, match="finite number"):
+        SystemTaskPayload(task_id="T-NAN", target_identifier="KEY", primary_metric=float("nan"))
+
+
+def test_input_validation_rejects_inf():
+    """Infinite metric values should be rejected by validation."""
+    with pytest.raises(ValueError, match="finite number"):
+        SystemTaskPayload(task_id="T-INF", target_identifier="KEY", primary_metric=float("inf"))
+
+
+def test_input_validation_rejects_empty_task_id():
+    """Empty task_id should be rejected."""
+    with pytest.raises(ValueError, match="cannot be empty"):
+        SystemTaskPayload(task_id="   ", target_identifier="KEY", primary_metric=10.0)
+
+
+def test_input_validation_rejects_long_identifier():
+    """Identifiers exceeding 256 chars should be rejected."""
+    with pytest.raises(ValueError, match="exceeds maximum length"):
+        SystemTaskPayload(task_id="T1", target_identifier="X" * 300, primary_metric=10.0)
+
+
+def test_audit_trail_requires_secret_key():
+    """AuditTrail should raise SecurityException when no key is provided."""
+    from agents.base import AuditTrail, SecurityException
+    import os
+    # Temporarily clear the env var
+    original = os.environ.pop("AUDIT_SECRET_KEY", None)
+    try:
+        with pytest.raises(SecurityException, match="AUDIT_SECRET_KEY"):
+            AuditTrail()
+    finally:
+        if original:
+            os.environ["AUDIT_SECRET_KEY"] = original
+
+
+def test_batch_file_not_found():
+    """Batch command should handle missing input file gracefully."""
+    result = main(["batch", "-i", "nonexistent_file.csv"])
+    assert result == 1

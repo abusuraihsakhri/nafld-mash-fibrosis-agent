@@ -8,3 +8,28 @@ output.csv
 dist/
 build/
 *.egg-info/
+
+# Environment variables - NEVER commit secrets
+.env
+.env.local
+.env.*.local
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+.coverage
+htmlcov/
+*.cover

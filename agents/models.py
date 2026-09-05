@@ -4,9 +4,10 @@ Domain: Gastroenterology & Hepatology Systems
 Standard: AASLD / ACG / Chicago Classification v4.0
 """
 import datetime
+import math
 from enum import Enum
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class UrgencyLevel(str, Enum):
@@ -21,6 +22,22 @@ class SystemIntegrityStatus(str, Enum):
     RECALIBRATION_REQUIRED = "RECALIBRATION_REQUIRED"
 
 
+def _validate_finite_float(v: float, field_name: str) -> float:
+    """Ensure metric values are finite (not NaN or Inf)."""
+    if math.isnan(v) or math.isinf(v):
+        raise ValueError(f"{field_name} must be a finite number, got {v}")
+    return v
+
+
+def _validate_identifier(v: str, field_name: str) -> str:
+    """Validate string identifiers for length and basic safety."""
+    if not v or not v.strip():
+        raise ValueError(f"{field_name} cannot be empty or whitespace")
+    if len(v) > 256:
+        raise ValueError(f"{field_name} exceeds maximum length of 256 characters")
+    return v.strip()
+
+
 class SystemTaskPayload(BaseModel):
     task_id: str = Field(..., description="Unique task / case identifier")
     target_identifier: str = Field(..., description="Entity, patient key, or genomic/cryptographic target")
@@ -30,6 +47,31 @@ class SystemTaskPayload(BaseModel):
     is_critical_flag: bool = Field(default=False, description="Emergency escalation or high priority trigger")
     attributes: Dict[str, Any] = Field(default_factory=dict, description="Metadata key-value pairs")
     timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+
+    @field_validator("task_id")
+    @classmethod
+    def validate_task_id(cls, v: str) -> str:
+        return _validate_identifier(v, "task_id")
+
+    @field_validator("target_identifier")
+    @classmethod
+    def validate_target_identifier(cls, v: str) -> str:
+        return _validate_identifier(v, "target_identifier")
+
+    @field_validator("primary_metric")
+    @classmethod
+    def validate_primary_metric(cls, v: float) -> float:
+        return _validate_finite_float(v, "primary_metric")
+
+    @field_validator("secondary_metric")
+    @classmethod
+    def validate_secondary_metric(cls, v: float) -> float:
+        return _validate_finite_float(v, "secondary_metric")
+
+    @field_validator("status_descriptor")
+    @classmethod
+    def validate_status_descriptor(cls, v: str) -> str:
+        return _validate_identifier(v, "status_descriptor")
 
 
 class AgentAlert(BaseModel):
