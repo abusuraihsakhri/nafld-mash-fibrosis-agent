@@ -12,6 +12,17 @@ from agents.base import AuditLogger
 supervisor = SystemSupervisor(model_provider="mock")
 
 
+def parse_csv_bool(value):
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in ("1", "true", "yes", "y", "on"):
+        return True
+    if normalized in ("", "0", "false", "no", "n", "off"):
+        return False
+    raise ValueError(f"Invalid boolean: {value!r}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="nafld-mash-fibrosis-agent", description="Nafld Mash Fibrosis Agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -34,6 +45,14 @@ def main(argv=None):
     p_batch.add_argument("-i", "--input", required=True)
     p_batch.add_argument("-o", "--output", default="results.csv")
 
+    # Validated clinical score calculation (separate from generic audit).
+    p_fibrosis = subparsers.add_parser("fibrosis", help="Calculate FIB-4 and optional NAFLD Fibrosis Score")
+    for name in ("age", "ast", "alt", "platelets"):
+        p_fibrosis.add_argument("--" + name, type=float, required=True)
+    p_fibrosis.add_argument("--bmi", type=float)
+    p_fibrosis.add_argument("--albumin", type=float, help="Albumin in g/dL")
+    p_fibrosis.add_argument("--ifg", choices=("yes", "no"), help="Impaired fasting glucose or diabetes")
+
     # Verify Audit
     subparsers.add_parser("verify-audit", help="Verify HMAC audit trail integrity")
 
@@ -43,6 +62,22 @@ def main(argv=None):
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
+
+    if args.command == "fibrosis":
+        from nafld_mash_fibrosis_agent.fibrosis import assess_fibrosis
+        try:
+            result = assess_fibrosis(
+                age=args.age, ast=args.ast, alt=args.alt, platelets=args.platelets,
+                bmi=args.bmi, albumin=args.albumin,
+                impaired_fasting_glucose_or_diabetes=(
+                    None if args.ifg is None else args.ifg == "yes"
+                ),
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "audit":
         payload = SystemTaskPayload(
@@ -102,7 +137,7 @@ def main(argv=None):
                     primary_metric=float(r.get("primary_metric", 15.0)),
                     secondary_metric=float(r.get("secondary_metric", 5.0)),
                     status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                    is_critical_flag=bool(r.get("is_critical_flag", False)),
+                    is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
                 )
             except (ValueError, TypeError) as e:
                 print(f"Warning: Skipping invalid row {r.get('task_id', '?')}: {e}", file=sys.stderr)
