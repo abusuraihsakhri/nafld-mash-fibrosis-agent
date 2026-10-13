@@ -110,3 +110,24 @@ def test_api_scores_and_restricts_logs(monkeypatch):
     })
     assert authorized.status_code == 200
     assert authorized.json()["verified"] is True
+
+
+
+def test_batch_honors_original_schema_and_boolean_flags(tmp_path):
+    import csv
+    from cli import main
+
+    source = tmp_path / "input.csv"
+    target = tmp_path / "out.csv"
+    source.write_text(
+        "case_id,patient_synthetic_id,metric_primary,metric_secondary,is_stat,status_flag\n"
+        "CASE-01,SYNTH-01,10,2,False,NOMINAL\n"
+        "CASE-02,SYNTH-02,10,2,True,NOMINAL\n",
+        encoding="utf-8",
+    )
+    assert main(["batch", "-i", str(source), "-o", str(target)]) == 0
+    with target.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 2
+    assert rows[0]["overall_urgency"] == "ROUTINE"
+    assert rows[1]["overall_urgency"] == "CRITICAL_STAT_PANIC"
