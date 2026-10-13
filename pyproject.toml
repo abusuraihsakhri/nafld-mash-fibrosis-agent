@@ -1,27 +1,34 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nafld-mash-fibrosis-engine"
-version = "2.0.0"
-description = "MASH-Sentinel: Metabolic Dysfunction-Associated Steatohepatitis & FAST Score Engine"
+version = "2.1.0"
+description = "Deterministic FIB-4 and NAFLD Fibrosis Score calculation with optional legacy audits"
 readme = "README.md"
-authors = [{ name = "Dr. Abu Suraih Sakhri", email = "abusuraih@example.com" }]
-license = { text = "MIT" }
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Abu Suraih Sakhri"}]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.9"
-dependencies = []
+dependencies = ["pydantic>=2,<3"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.111,<1", "uvicorn>=0.30,<1"]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [project.scripts]
 nafld-mash-fibrosis-engine = "nafld_mash_fibrosis_agent.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-engine"
-Repository = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-engine.git"
+Homepage = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-agent"
+Repository = "https://github.com/abusuraihsakhri/nafld-mash-fibrosis-agent"
+
+[tool.setuptools]
+packages = ["agents", "nafld_mash_fibrosis_agent"]
+py-modules = ["cli", "mash_sentinel", "enrichment", "simulator"]
