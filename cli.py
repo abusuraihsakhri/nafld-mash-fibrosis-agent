@@ -127,17 +127,19 @@ def main(argv=None):
             print(f"Error: Permission denied reading '{args.input}'.", file=sys.stderr)
             return 1
 
-        out_fields = fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]))
         out_rows = []
         for r in rows:
             try:
                 payload = SystemTaskPayload(
-                    task_id=r.get("task_id", "TASK-01"),
-                    target_identifier=r.get("target_identifier", "TARGET-01"),
-                    primary_metric=float(r.get("primary_metric", 15.0)),
-                    secondary_metric=float(r.get("secondary_metric", 5.0)),
-                    status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                    is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
+                    task_id=r.get("task_id") or r.get("case_id") or "TASK-01",
+                    target_identifier=r.get("target_identifier") or r.get("patient_synthetic_id") or "TARGET-01",
+                    primary_metric=float(r.get("primary_metric") or r.get("metric_primary")),
+                    secondary_metric=float(r.get("secondary_metric") or r.get("metric_secondary") or 0),
+                    status_descriptor=r.get("status_descriptor") or r.get("status_flag") or r.get("status_text") or "NOMINAL",
+                    is_critical_flag=parse_csv_bool(
+                        r.get("is_critical_flag") or r.get("is_stat") or r.get("critical_flag") or False
+                    ),
                 )
             except (ValueError, TypeError) as e:
                 print(f"Warning: Skipping invalid row {r.get('task_id', '?')}: {e}", file=sys.stderr)
