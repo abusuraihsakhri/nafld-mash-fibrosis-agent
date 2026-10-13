@@ -1,184 +1,73 @@
-# Nafld Mash Fibrosis Agent
+# MASLD / NAFLD Fibrosis Risk Calculator
 
-> **Domain:** Gastroenterology, Hepatology & Clinical Nutrition
-> **Reference Guidelines & Standards:** `AASLD & ACG Clinical Practice Guidelines`
+A deterministic clinical-research utility for **FIB-4** and the historical **NAFLD Fibrosis Score (NFS)**. Includes a local-only browser calculator, Python functions, a command-line interface and an optional FastAPI endpoint. The repository also retains its legacy generic multi-worker audit tools for compatibility.
 
-<div align="center">
+## Browser calculator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+Open [web/index.html](web/index.html) locally, or use the GitHub Pages deployment once enabled and verified. No installation, backend, account or Python runtime is required for the browser calculator.
 
-</div>
+Enter age (completed years), AST (U/L), ALT (U/L), and platelets (10⁹/L) for FIB-4. Optionally enter **all three** of BMI (kg/m²), albumin (g/dL), and impaired fasting glucose/diabetes status for NFS.
 
----
+The browser performs calculations locally and does not send values to a server or store them. It loads no external JavaScript, fonts, or analytics.
 
-## 📖 What It Does
+## Clinical interpretation
 
-**Nafld Mash Fibrosis Agent** is an advanced analytical and computational platform implementing MASH Non-Invasive Biomarkers, FAST Score & VCTE FibroScan Agent. It provides clinical decision support for hepatology assessments including FIB-4 scoring, NAFLD Fibrosis Score calculation, and FibroScan VCTE liver stiffness interpretation.
+- **FIB-4:** `age × AST / (platelets × √ALT)`. Screening categories are low (<1.3; <2.0 if age >65), indeterminate (between the age-adjusted lower cutoff and 2.67), and high (>2.67).
+- **NFS:** `−1.675 + 0.037×age + 0.094×BMI + 1.13×IFG/diabetes + 0.99×AST/ALT − 0.013×platelets − 0.66×albumin`. Low is <−1.455, high is >0.676; other results are indeterminate.
+- **Limitations:** These are risk scores, not diagnoses or histological stages. FIB-4 is less accurate below 35 years and should not be used during acute illness. Clinical context and follow-up noninvasive testing (VCTE/ELF) or hepatology review may be necessary. Neither FAST nor MASH pharmacotherapy eligibility is calculated.
 
----
+Methods: [AASLD 2023 NAFLD Practice Guidance](https://pmc.ncbi.nlm.nih.gov/articles/PMC10735173/), [EASL–EASD–EASO 2024 MASLD Guidelines](https://pmc.ncbi.nlm.nih.gov/articles/PMC11299976/), and [Angulo et al. 2007 NFS derivation](https://doi.org/10.1002/hep.21496).
 
-## 🚀 Quickstart
+**For research and education, not autonomous clinical decision-making.**
 
-### Prerequisites
-- Python 3.10+
-- pip
+## Python and CLI
 
-### Installation
+Python 3.10+:
+
 ```bash
-pip install -e .
+python -m pip install -e .
+nafld-mash-fibrosis-engine fibrosis --age 60 --ast 30 --alt 40 --platelets 250
+nafld-mash-fibrosis-engine fibrosis --age 52 --ast 40 --alt 50 --platelets 230 --bmi 29 --albumin 4.2 --ifg yes
 ```
 
-### Configuration
-Set the required environment variable for the HMAC audit trail:
-```bash
-# Linux/macOS
-export AUDIT_SECRET_KEY=$(openssl rand -hex 32)
+Library:
 
-# Windows PowerShell
-$env:AUDIT_SECRET_KEY = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | % {[char]$_})
+```python
+from nafld_mash_fibrosis_agent.fibrosis import assess_fibrosis
 
-# Windows CMD
-set AUDIT_SECRET_KEY=your-secure-random-key-here
+result = assess_fibrosis(age=60, ast=30, alt=40, platelets=250)
+print(result["fib4"], result["fib4_category"])
 ```
 
----
+Inputs are validated for finite, plausible values. Missing NFS variables cannot be silently defaulted. The CLI exits with code 2 for invalid calculator inputs.
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## Optional REST API
 
-### 🔬 Core Algorithmic & Evaluation Engines
-
-- **`InvariantQCWorker`**: Primary mathematical & protocol boundary auditor
-- **`SafetyEscalationWorker`**: Safety boundary, toxicity & emergency interlock worker
-- **`ProtocolConformanceWorker`**: Spec conformance, anomaly triage & discordance checker
-- **`NonInvasiveFibrosisScorerAgent`**: FIB-4 and NAFLD Fibrosis Score evaluation
-- **`VCTEStiffnessClassifierAgent`**: FibroScan VCTE liver stiffness classification
-- **`MASHPharmacotherapyAdvisorAgent`**: Pharmacotherapy decision support
-
----
-
-## 💻 CLI Usage
-
-### 1. Single Case Audit
 ```bash
-python cli.py audit --task-id CASE-001 --target PATIENT-01 --primary 28.5 --secondary 14.2 --critical --status DISCORDANT
-```
-
-### 2. Batch Processing
-```bash
-python cli.py batch -i sample.csv -o results.csv
-```
-
-### 3. Interactive Chat
-```bash
-python cli.py chat "What is the system status?"
-```
-
-### 4. Verify Audit Trail
-```bash
-python cli.py verify-audit
-```
-
-### 5. Start REST API Server
-```bash
+python -m pip install -e '.[api]'
+export AUDIT_SECRET_KEY="$(openssl rand -hex 32)"
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-### Input Data Schema (CSV)
+Call `POST /api/fibrosis` with `{"age":60,"ast":30,"alt":40,"platelets":250}`. Include `bmi`, `albumin`, and `impaired_fasting_glucose_or_diabetes` together to calculate NFS. OpenAPI documentation is served at `/docs`.
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `task_id` | Unique case identifier | Required |
-| `target_identifier` | Patient synthetic key | Required |
-| `primary_metric` | Primary measurement value | Required |
-| `secondary_metric` | Secondary kinetic index | Required |
-| `status_descriptor` | Status code (NOMINAL, DISCORDANT, etc.) | Required |
-| `is_critical_flag` | Emergency escalation flag | Optional |
+The older `POST /api/audit`, `POST /api/chat`, `GET /metrics` and CLI `audit`, `batch`, `chat`, `verify-audit` features remain available; these implement **generic task checks**, not validated MASLD risk algorithms. They must not be used to make clinical treatment or emergency-escalation decisions. The mock conversational adapter is deterministic; it does not consult a medical knowledge model. `GET /api/audit/logs` requires a distinct `AUDIT_LOG_READ_TOKEN` of at least 24 characters sent using the `Authorization: Bearer` header, and otherwise returns 403.
 
----
+## Security and privacy
 
-## 🛡️ Security & Enterprise Architecture
+Do **not** supply names, medical record numbers or other identifiable data. Legacy audit requests may retain synthetic identifiers in process memory; audit trail metadata is also held in memory and is **not** a persistent or independently certified clinical audit record. A regex-based identifier filter reduces some accidental disclosures but is **not HIPAA de-identification**. Protect any API exposure with external access controls/TLS; local execution is preferred. The sample data are synthetic.
 
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, emails, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation. Requires `AUDIT_SECRET_KEY` environment variable.
-* **Input Validation:** All metric values validated as finite numbers (NaN/Inf rejected). String identifiers validated for length and content.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances, Claude, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+Docker Compose binds the API to `127.0.0.1:8000` by default; set `AUDIT_SECRET_KEY` in your environment before running `docker compose up --build`. No patient data should be committed or uploaded.
 
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+## Development and validation
 
 ```bash
-# Set test environment variable (or use conftest.py default)
-set AUDIT_SECRET_KEY=test-key-for-pytest
-pytest -v
+python -m pip install -e '.[api,test]'
+export AUDIT_SECRET_KEY="$(openssl rand -hex 32)"
+python -m pytest -q
+node web/test_calculator.cjs
 ```
 
-Execute high-throughput batch simulation benchmarks:
+CI runs Python tests, package builds, and Node tests of the browser mathematics on pushes and pull requests. The static application requires a modern browser supporting standard ES2019 JavaScript and does not require Pyodide. GitHub Pages deployment is defined in [pages.yml](.github/workflows/pages.yml).
 
-```bash
-python simulator.py 1000
-```
-
-### Test Coverage
-- PHI guard enforcement
-- Specialized worker evaluation
-- Supervisor consensus and audit trail
-- Input validation (NaN, Inf, empty strings, length limits)
-- Error handling (file not found, permission errors)
-
----
-
-## 🐳 Container Deployment
-
-### Docker Compose (Recommended)
-```bash
-# Create .env file with required secrets
-echo "AUDIT_SECRET_KEY=your-secure-production-key" > .env
-
-# Build and run
-docker compose up -d
-```
-
-### Docker Build
-```bash
-docker build -t nafld-mash-fibrosis-agent .
-docker run -e AUDIT_SECRET_KEY=your-secure-key -p 8000:8000 nafld-mash-fibrosis-agent
-```
-
----
-
-## 📁 Project Structure
-
-```
-nafld-mash-fibrosis-agent/
-├── agents/                    # Core agent package
-│   ├── __init__.py           # Package init
-│   ├── api.py                # FastAPI REST endpoints
-│   ├── base.py               # Security, PHI guard, HMAC audit
-│   ├── learning.py           # Bayesian calibration engine
-│   ├── llm_factory.py        # LLM provider factory
-│   ├── metrics.py            # Prometheus metrics collector
-│   ├── models.py             # Pydantic data models with validation
-│   ├── streamer.py           # WebSocket telemetry broadcaster
-│   ├── supervisor.py         # Master orchestrator
-│   └── workers.py            # Specialized worker agents
-├── tests/                     # Test suite
-├── nafld_mash_fibrosis_agent/ # Alternative CLI package
-├── web/index.html             # Operations console UI
-├── cli.py                     # Main CLI entry point
-├── mash_sentinel.py           # Standalone MASH sentinel module
-├── enrichment.py              # Enrichment feature engines
-├── simulator.py               # High-throughput simulation
-├── pyproject.toml             # Project configuration
-├── docker-compose.yml         # Container orchestration
-└── .github/workflows/ci.yml   # CI/CD pipeline
-```
+**License:** [MIT](LICENSE).
