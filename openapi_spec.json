@@ -1,114 +1,147 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Nafld Mash Fibrosis Engine API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
-    "contact": {
-      "name": "Dr. Abu Suraih Sakhri",
-      "url": "https://github.com/abusuraihsakhri"
-    }
+    "title": "MASLD Fibrosis Calculator and Legacy Audit API",
+    "description": "Clinical FIB-4/NFS scores are distinct from the preserved generic legacy audit functions.",
+    "version": "2.1.0"
   },
   "paths": {
     "/health": {
       "get": {
-        "summary": "Health and metadata check",
+        "summary": "API health check",
         "responses": {
           "200": {
-            "description": "System optimal"
+            "description": "Service available"
           }
         }
       }
     },
-    "/metrics": {
-      "get": {
-        "summary": "Prometheus operational metrics",
+    "/api/fibrosis": {
+      "post": {
+        "summary": "Calculate FIB-4 and optional NAFLD Fibrosis Score",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "age",
+                  "ast",
+                  "alt",
+                  "platelets"
+                ],
+                "properties": {
+                  "age": {
+                    "type": "number",
+                    "description": "Completed years, 18–120"
+                  },
+                  "ast": {
+                    "type": "number",
+                    "description": "U/L"
+                  },
+                  "alt": {
+                    "type": "number",
+                    "description": "U/L"
+                  },
+                  "platelets": {
+                    "type": "number",
+                    "description": "10^9/L"
+                  },
+                  "bmi": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "kg/m^2; optional NFS"
+                  },
+                  "albumin": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "g/dL; optional NFS"
+                  },
+                  "impaired_fasting_glucose_or_diabetes": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "Optional NFS"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "Risk-score estimates (not fibrosis staging or MASH diagnosis)"
+          },
+          "422": {
+            "description": "Invalid clinical inputs"
           }
         }
       }
     },
     "/api/audit": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "task_id": {
-                    "type": "string"
-                  },
-                  "target_identifier": {
-                    "type": "string"
-                  },
-                  "primary_metric": {
-                    "type": "number"
-                  },
-                  "secondary_metric": {
-                    "type": "number"
-                  },
-                  "status_descriptor": {
-                    "type": "string"
-                  },
-                  "is_critical_flag": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "task_id",
-                  "target_identifier",
-                  "primary_metric"
-                ]
-              }
-            }
-          }
-        },
+        "summary": "Legacy generic task audit (not a validated fibrosis assessment)",
         "responses": {
           "200": {
-            "description": "Consensus dossier with HMAC signature"
+            "description": "Legacy dossier"
+          },
+          "422": {
+            "description": "Invalid or blocked input"
           }
         }
       }
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "query": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "query"
-                ]
-              }
-            }
-          }
-        },
+        "summary": "Deterministic legacy mock chat",
         "responses": {
           "200": {
-            "description": "Supervisory response"
+            "description": "Mock response"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "JSON counters for legacy audits",
+        "responses": {
+          "200": {
+            "description": "JSON counters"
           }
         }
       }
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "summary": "Protected in-memory HMAC audit metadata",
+        "security": [
+          {
+            "auditBearer": []
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Cryptographic audit trail"
+            "description": "Audit metadata"
+          },
+          "403": {
+            "description": "No valid AUDIT_LOG_READ_TOKEN configured or provided"
           }
         }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "auditBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The separately configured AUDIT_LOG_READ_TOKEN (minimum 24 characters)"
       }
     }
   }
