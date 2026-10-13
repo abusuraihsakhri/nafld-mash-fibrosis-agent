@@ -11,6 +11,17 @@ from .agents import MASHCoordinator
 coordinator = MASHCoordinator()
 
 
+def parse_csv_bool(value):
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in ("1", "true", "yes", "y", "on"):
+        return True
+    if normalized in ("", "0", "false", "no", "n", "off"):
+        return False
+    raise ValueError(f"Invalid boolean: {value!r}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="nafld-mash-fibrosis-agent", description="MASH-Sentinel: Metabolic Dysfunction-Associated Steatohepatitis & FAST Score Agent")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -22,6 +33,14 @@ def main(argv=None):
     p_audit.add_argument("--secondary", type=float, default=12.5)
     p_audit.add_argument("--stat", action="store_true")
     p_audit.add_argument("--status", default="DISCORDANT")
+
+    # Deterministic clinical score calculation.
+    p_fibrosis = subparsers.add_parser("fibrosis", help="Calculate FIB-4 and optional NAFLD Fibrosis Score")
+    for name in ("age", "ast", "alt", "platelets"):
+        p_fibrosis.add_argument("--" + name, type=float, required=True)
+    p_fibrosis.add_argument("--bmi", type=float)
+    p_fibrosis.add_argument("--albumin", type=float, help="Albumin in g/dL")
+    p_fibrosis.add_argument("--ifg", choices=("yes", "no"))
 
     # Chat
     p_chat = subparsers.add_parser("chat", help="System configuration query")
@@ -38,6 +57,22 @@ def main(argv=None):
     p_serve.add_argument("--port", type=int, default=8000)
 
     args = parser.parse_args(argv)
+
+    if args.command == "fibrosis":
+        from .fibrosis import assess_fibrosis
+        try:
+            result = assess_fibrosis(
+                age=args.age, ast=args.ast, alt=args.alt, platelets=args.platelets,
+                bmi=args.bmi, albumin=args.albumin,
+                impaired_fasting_glucose_or_diabetes=(
+                    None if args.ifg is None else args.ifg == "yes"
+                ),
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2))
+        return 0
 
     if args.command == "audit":
         case = ClinicalCasePayload(
@@ -82,7 +117,7 @@ def main(argv=None):
                 primary_metric=float(r.get("metric_primary", r.get("primary_metric", 15.0))),
                 secondary_metric=float(r.get("metric_secondary", r.get("secondary_metric", 5.0))),
                 status_flag=r.get("status_flag", r.get("status_text", "NORMAL")),
-                is_stat=bool(r.get("is_stat", r.get("critical_flag", False))),
+                is_stat=parse_csv_bool(r.get("is_stat", r.get("critical_flag", False))),
             )
             dossier = coordinator.process_case(case)
             row_dict = dict(r)
